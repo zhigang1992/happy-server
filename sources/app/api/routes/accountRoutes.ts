@@ -36,6 +36,104 @@ export function accountRoutes(app: Fastify) {
         });
     });
 
+    /**
+     * Update account profile (username, firstName, lastName).
+     * Username must be unique and follow validation rules.
+     */
+    app.post('/v1/account/profile', {
+        schema: {
+            body: z.object({
+                username: z.string().min(3).max(30).regex(/^[a-zA-Z0-9_-]+$/).nullable().optional(),
+                firstName: z.string().max(100).nullable().optional(),
+                lastName: z.string().max(100).nullable().optional()
+            }),
+            response: {
+                200: z.object({
+                    success: z.literal(true),
+                    profile: z.object({
+                        username: z.string().nullable(),
+                        firstName: z.string().nullable(),
+                        lastName: z.string().nullable()
+                    })
+                }),
+                400: z.object({
+                    success: z.literal(false),
+                    error: z.string()
+                }),
+                409: z.object({
+                    success: z.literal(false),
+                    error: z.literal('username-taken')
+                })
+            }
+        },
+        preHandler: app.authenticate
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { username, firstName, lastName } = request.body;
+
+        try {
+            // Build update data - only include fields that were provided
+            const updateData: { username?: string | null; firstName?: string | null; lastName?: string | null } = {};
+            if (username !== undefined) updateData.username = username;
+            if (firstName !== undefined) updateData.firstName = firstName;
+            if (lastName !== undefined) updateData.lastName = lastName;
+
+            // If no fields to update, just return current profile
+            if (Object.keys(updateData).length === 0) {
+                const user = await db.account.findUniqueOrThrow({
+                    where: { id: userId },
+                    select: { username: true, firstName: true, lastName: true }
+                });
+                return reply.send({
+                    success: true,
+                    profile: {
+                        username: user.username,
+                        firstName: user.firstName,
+                        lastName: user.lastName
+                    }
+                });
+            }
+
+            // Check if username is being changed and is already taken
+            if (updateData.username) {
+                const existingUser = await db.account.findFirst({
+                    where: {
+                        username: updateData.username,
+                        NOT: { id: userId }
+                    }
+                });
+                if (existingUser) {
+                    return reply.code(409).send({
+                        success: false,
+                        error: 'username-taken'
+                    });
+                }
+            }
+
+            // Update the profile
+            const updatedUser = await db.account.update({
+                where: { id: userId },
+                data: updateData,
+                select: { username: true, firstName: true, lastName: true }
+            });
+
+            return reply.send({
+                success: true,
+                profile: {
+                    username: updatedUser.username,
+                    firstName: updatedUser.firstName,
+                    lastName: updatedUser.lastName
+                }
+            });
+        } catch (error) {
+            log({ module: 'api', level: 'error' }, `Failed to update profile: ${error}`);
+            return reply.code(400).send({
+                success: false,
+                error: 'Failed to update profile'
+            });
+        }
+    });
+
     // Get Account Settings API
     app.get('/v1/account/settings', {
         preHandler: app.authenticate,
