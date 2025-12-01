@@ -2,12 +2,20 @@ import { z } from "zod";
 import { type Fastify } from "../types";
 import { log } from "@/utils/log";
 
+/**
+ * Voice routes for ElevenLabs Conversational AI integration.
+ *
+ * Required environment variables:
+ * - ELEVENLABS_API_KEY: Your ElevenLabs API key
+ * - ELEVENLABS_AGENT_ID: Your ElevenLabs Conversational AI agent ID
+ *
+ * In development mode (ENV=dev), RevenueCat subscription check is skipped.
+ */
 export function voiceRoutes(app: Fastify) {
     app.post('/v1/voice/token', {
         preHandler: app.authenticate,
         schema: {
             body: z.object({
-                agentId: z.string(),
                 revenueCatPublicKey: z.string().optional()
             }),
             response: {
@@ -24,7 +32,7 @@ export function voiceRoutes(app: Fastify) {
         }
     }, async (request, reply) => {
         const userId = request.userId; // CUID from JWT
-        const { agentId, revenueCatPublicKey } = request.body;
+        const { revenueCatPublicKey } = request.body;
 
         log({ module: 'voice' }, `Voice token request from user ${userId}`);
 
@@ -33,7 +41,7 @@ export function voiceRoutes(app: Fastify) {
         // Production requires RevenueCat key
         if (!isDevelopment && !revenueCatPublicKey) {
             log({ module: 'voice' }, 'Production environment requires RevenueCat public key');
-            return reply.code(400).send({ 
+            return reply.code(400).send({
                 allowed: false,
                 error: 'RevenueCat public key required'
             });
@@ -54,20 +62,18 @@ export function voiceRoutes(app: Fastify) {
 
             if (!response.ok) {
                 log({ module: 'voice' }, `RevenueCat check failed for user ${userId}: ${response.status}`);
-                return reply.send({ 
-                    allowed: false,
-                    agentId
+                return reply.send({
+                    allowed: false
                 });
             }
 
             const data = await response.json() as any;
             const proEntitlement = data.subscriber?.entitlements?.active?.pro;
-            
+
             if (!proEntitlement) {
                 log({ module: 'voice' }, `User ${userId} does not have active subscription`);
-                return reply.send({ 
-                    allowed: false,
-                    agentId
+                return reply.send({
+                    allowed: false
                 });
             }
         }
@@ -75,11 +81,18 @@ export function voiceRoutes(app: Fastify) {
         // Check if 11Labs API key is configured
         const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
         if (!elevenLabsApiKey) {
-            log({ module: 'voice' }, 'Missing 11Labs API key');
-            return reply.code(400).send({ allowed: false, error: 'Missing 11Labs API key on the server' });
+            log({ module: 'voice' }, 'Missing ELEVENLABS_API_KEY environment variable');
+            return reply.code(400).send({ allowed: false, error: 'Voice not configured on server (missing API key)' });
         }
 
-        // Get 11Labs conversation token
+        // Check if agent ID is configured
+        const agentId = process.env.ELEVENLABS_AGENT_ID;
+        if (!agentId) {
+            log({ module: 'voice' }, 'Missing ELEVENLABS_AGENT_ID environment variable');
+            return reply.code(400).send({ allowed: false, error: 'Voice not configured on server (missing agent ID)' });
+        }
+
+        // Get 11Labs conversation token (for WebRTC connections)
         const response = await fetch(
             `https://api.elevenlabs.io/v1/convai/conversation/token?agent_id=${agentId}`,
             {
@@ -90,18 +103,40 @@ export function voiceRoutes(app: Fastify) {
                 }
             }
         );
-        
+
         if (!response.ok) {
-            log({ module: 'voice' }, `Failed to get 11Labs token for user ${userId}`);
-            return reply.code(400).send({ 
+            const errorText = await response.text();
+            log({ module: 'voice' }, `Failed to get 11Labs token: ${response.status} ${errorText}`);
+
+            // Parse error for better user feedback
+            let errorDetail = 'Failed to get voice token from ElevenLabs';
+            try {
+                const errorJson = JSON.parse(errorText);
+                if (errorJson.detail?.message) {
+                    errorDetail = errorJson.detail.message;
+                } else if (errorJson.detail?.status) {
+                    errorDetail = `ElevenLabs error: ${errorJson.detail.status}`;
+                }
+            } catch {
+                // Use default error message
+            }
+
+            return reply.code(400).send({
                 allowed: false,
-                error: `Failed to get 11Labs token for user ${userId}`
+                error: errorDetail
             });
         }
 
         const data = await response.json() as any;
-        console.log(data);
         const token = data.token;
+
+        if (!token) {
+            log({ module: 'voice' }, 'ElevenLabs returned empty token');
+            return reply.code(400).send({
+                allowed: false,
+                error: 'ElevenLabs returned invalid response'
+            });
+        }
 
         log({ module: 'voice' }, `Voice token issued for user ${userId}`);
         return reply.send({
