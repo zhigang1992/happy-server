@@ -5,9 +5,9 @@ import { log } from "@/utils/log";
 /**
  * Voice routes for ElevenLabs Conversational AI integration.
  *
- * Required environment variables:
- * - ELEVENLABS_API_KEY: Your ElevenLabs API key
- * - ELEVENLABS_AGENT_ID: Your ElevenLabs Conversational AI agent ID
+ * Supports two modes:
+ * 1. Server credentials (default): Uses ELEVENLABS_API_KEY and ELEVENLABS_AGENT_ID env vars
+ * 2. User credentials: Client provides customAgentId and customApiKey in the request
  *
  * In development mode (ENV=dev), RevenueCat subscription check is skipped.
  */
@@ -16,7 +16,10 @@ export function voiceRoutes(app: Fastify) {
         preHandler: app.authenticate,
         schema: {
             body: z.object({
-                revenueCatPublicKey: z.string().optional()
+                revenueCatPublicKey: z.string().optional(),
+                // Custom ElevenLabs credentials (when user provides their own)
+                customAgentId: z.string().optional(),
+                customApiKey: z.string().optional()
             }),
             response: {
                 200: z.object({
@@ -32,7 +35,7 @@ export function voiceRoutes(app: Fastify) {
         }
     }, async (request, reply) => {
         const userId = request.userId; // CUID from JWT
-        const { revenueCatPublicKey } = request.body;
+        const { revenueCatPublicKey, customAgentId, customApiKey } = request.body;
 
         log({ module: 'voice' }, `Voice token request from user ${userId}`);
 
@@ -78,18 +81,31 @@ export function voiceRoutes(app: Fastify) {
             }
         }
 
-        // Check if 11Labs API key is configured
-        const elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
-        if (!elevenLabsApiKey) {
-            log({ module: 'voice' }, 'Missing ELEVENLABS_API_KEY environment variable');
-            return reply.code(400).send({ allowed: false, error: 'Voice not configured on server (missing API key)' });
-        }
+        // Determine which credentials to use: user-provided or server defaults
+        const useCustomCredentials = customAgentId && customApiKey;
 
-        // Check if agent ID is configured
-        const agentId = process.env.ELEVENLABS_AGENT_ID;
-        if (!agentId) {
-            log({ module: 'voice' }, 'Missing ELEVENLABS_AGENT_ID environment variable');
-            return reply.code(400).send({ allowed: false, error: 'Voice not configured on server (missing agent ID)' });
+        let elevenLabsApiKey: string | undefined;
+        let agentId: string | undefined;
+
+        if (useCustomCredentials) {
+            // User provided their own ElevenLabs credentials
+            log({ module: 'voice' }, `Using custom ElevenLabs credentials for user ${userId}`);
+            elevenLabsApiKey = customApiKey;
+            agentId = customAgentId;
+        } else {
+            // Use server's default credentials
+            elevenLabsApiKey = process.env.ELEVENLABS_API_KEY;
+            agentId = process.env.ELEVENLABS_AGENT_ID;
+
+            if (!elevenLabsApiKey) {
+                log({ module: 'voice' }, 'Missing ELEVENLABS_API_KEY environment variable');
+                return reply.code(400).send({ allowed: false, error: 'Voice not configured on server (missing API key)' });
+            }
+
+            if (!agentId) {
+                log({ module: 'voice' }, 'Missing ELEVENLABS_AGENT_ID environment variable');
+                return reply.code(400).send({ allowed: false, error: 'Voice not configured on server (missing agent ID)' });
+            }
         }
 
         // Get 11Labs conversation token (for WebRTC connections)
