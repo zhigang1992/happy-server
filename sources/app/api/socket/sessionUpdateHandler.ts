@@ -220,15 +220,21 @@ export function sessionUpdateHandler(userId: string, socket: Socket, connection:
                     }
                 }
 
-                // Create message
-                const msg = await db.sessionMessage.create({
-                    data: {
-                        sessionId: sid,
-                        seq: msgSeq,
-                        content: msgContent,
-                        localId: useLocalId
-                    }
-                });
+                // Create message and update session's lastMessageAt
+                const [msg] = await db.$transaction([
+                    db.sessionMessage.create({
+                        data: {
+                            sessionId: sid,
+                            seq: msgSeq,
+                            content: msgContent,
+                            localId: useLocalId
+                        }
+                    }),
+                    db.session.update({
+                        where: { id: sid },
+                        data: { lastMessageAt: new Date() }
+                    })
+                ]);
 
                 // Emit new message update to relevant clients
                 const updatePayload = buildNewMessageUpdate(msg, sid, updSeq, randomKeyNaked(12));

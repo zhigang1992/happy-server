@@ -32,33 +32,20 @@ export function sessionRoutes(app: Fastify) {
                 dataEncryptionKey: true,
                 active: true,
                 lastActiveAt: true,
-                // messages: {
-                //     orderBy: { seq: 'desc' },
-                //     take: 1,
-                //     select: {
-                //         id: true,
-                //         seq: true,
-                //         content: true,
-                //         localId: true,
-                //         createdAt: true
-                //     }
-                // }
+                lastMessageAt: true,
             }
         });
 
         return reply.send({
             sessions: sessions.map((v) => {
-                // const lastMessage = v.messages[0];
-                const sessionUpdatedAt = v.updatedAt.getTime();
-                // const lastMessageCreatedAt = lastMessage ? lastMessage.createdAt.getTime() : 0;
-
                 return {
                     id: v.id,
                     seq: v.seq,
                     createdAt: v.createdAt.getTime(),
-                    updatedAt: sessionUpdatedAt,
+                    updatedAt: v.updatedAt.getTime(),
                     active: v.active,
                     activeAt: v.lastActiveAt.getTime(),
+                    lastMessageAt: v.lastMessageAt ? v.lastMessageAt.getTime() : null,
                     metadata: v.metadata,
                     metadataVersion: v.metadataVersion,
                     agentState: v.agentState,
@@ -102,6 +89,7 @@ export function sessionRoutes(app: Fastify) {
                 dataEncryptionKey: true,
                 active: true,
                 lastActiveAt: true,
+                lastMessageAt: true,
             }
         });
 
@@ -113,6 +101,7 @@ export function sessionRoutes(app: Fastify) {
                 updatedAt: v.updatedAt.getTime(),
                 active: v.active,
                 activeAt: v.lastActiveAt.getTime(),
+                lastMessageAt: v.lastMessageAt ? v.lastMessageAt.getTime() : null,
                 metadata: v.metadata,
                 metadataVersion: v.metadataVersion,
                 agentState: v.agentState,
@@ -182,6 +171,7 @@ export function sessionRoutes(app: Fastify) {
                 dataEncryptionKey: true,
                 active: true,
                 lastActiveAt: true,
+                lastMessageAt: true,
             }
         });
 
@@ -204,6 +194,7 @@ export function sessionRoutes(app: Fastify) {
                 updatedAt: v.updatedAt.getTime(),
                 active: v.active,
                 activeAt: v.lastActiveAt.getTime(),
+                lastMessageAt: v.lastMessageAt ? v.lastMessageAt.getTime() : null,
                 metadata: v.metadata,
                 metadataVersion: v.metadataVersion,
                 agentState: v.agentState,
@@ -249,6 +240,7 @@ export function sessionRoutes(app: Fastify) {
                     dataEncryptionKey: session.dataEncryptionKey ? Buffer.from(session.dataEncryptionKey).toString('base64') : null,
                     active: session.active,
                     activeAt: session.lastActiveAt.getTime(),
+                    lastMessageAt: session.lastMessageAt ? session.lastMessageAt.getTime() : null,
                     createdAt: session.createdAt.getTime(),
                     updatedAt: session.updatedAt.getTime(),
                     lastMessage: null
@@ -297,6 +289,7 @@ export function sessionRoutes(app: Fastify) {
                     dataEncryptionKey: session.dataEncryptionKey ? Buffer.from(session.dataEncryptionKey).toString('base64') : null,
                     active: session.active,
                     activeAt: session.lastActiveAt.getTime(),
+                    lastMessageAt: session.lastMessageAt ? session.lastMessageAt.getTime() : null,
                     createdAt: session.createdAt.getTime(),
                     updatedAt: session.updatedAt.getTime(),
                     lastMessage: null
