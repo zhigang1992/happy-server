@@ -52,6 +52,7 @@ model Account {
     AccessKey           AccessKey[]
     UserFeedItem        UserFeedItem[]
     UserKVStore         UserKVStore[]
+    SessionBlob         SessionBlob[]
 }
 
 model TerminalAuthRequest {
@@ -109,6 +110,7 @@ model Session {
     messages          SessionMessage[]
     usageReports      UsageReport[]
     accessKeys        AccessKey[]
+    blobs             SessionBlob[]
 
     @@unique([accountId, tag])
     @@index([accountId, updatedAt(sort: Desc)])
@@ -127,6 +129,21 @@ model SessionMessage {
 
     @@unique([sessionId, localId])
     @@index([sessionId, seq])
+}
+
+model SessionBlob {
+    id        String   @id @default(uuid())
+    sessionId String
+    session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+    accountId String
+    account   Account  @relation(fields: [accountId], references: [id])
+    mimeType  String
+    size      Int      // Original size before encryption
+    s3Key     String   // Path in Minio: blobs/{accountId}/{sessionId}/{id}
+    createdAt DateTime @default(now())
+
+    @@index([sessionId])
+    @@index([accountId])
 }
 
 //
