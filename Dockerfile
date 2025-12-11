@@ -6,20 +6,20 @@ RUN apt-get update && apt-get install -y python3 ffmpeg make g++ build-essential
 
 WORKDIR /app
 
-# Copy package.json and yarn.lock
-COPY package.json yarn.lock ./
+# Copy package.json and bun.lock
+COPY package.json bun.lock ./
 COPY ./prisma ./prisma
 
-# Install dependencies
-RUN yarn install --frozen-lockfile --ignore-engines
+# Install bun and dependencies
+RUN npm install -g bun && bun install --frozen-lockfile
 
 # Copy the rest of the application code
 COPY ./tsconfig.json ./tsconfig.json
 COPY ./vitest.config.ts ./vitest.config.ts
 COPY ./sources ./sources
 
-# Build the Next.js application
-RUN yarn build
+# Build the application
+RUN bun run build
 
 # Stage 2: Runtime
 FROM node:20 AS runner
@@ -42,4 +42,4 @@ COPY --from=builder /app/sources ./sources
 EXPOSE 3000
 
 # Command to run the application
-CMD ["yarn", "start"] 
+CMD ["bun", "start"] 
