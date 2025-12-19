@@ -1,3 +1,20 @@
+# Happy Server (Fork)
+
+> **This is a personal fork of [happy-server](https://github.com/slopus/happy-server) from the amazing [Happy](https://happy.engineering) project.**
+>
+> All credit goes to the original authors. I've made some tweaks for my own self-hosted setup, but my changes are too scattered and experimental to submit upstream. If you're looking for the official version, please visit [github.com/slopus/happy-server](https://github.com/slopus/happy-server).
+
+## Fork Changes
+
+- Changed OAuth redirect URLs to `happy.reily.app` for self-hosted deployment
+- Switched from yarn to bun
+- Added encrypted blob storage for image uploads
+- Added session deletion with cascade and socket notifications
+- Support for custom ElevenLabs credentials in voice token endpoint
+- Various API improvements and bug fixes
+
+---
+
 # Happy Server
 
 Minimal backend for open-source end-to-end encrypted Claude Code clients.
