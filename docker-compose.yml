@@ -33,7 +33,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: happy-migrate
-    command: npx prisma migrate deploy
+    command: yarn prisma migrate deploy
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/happy-server
     depends_on:
