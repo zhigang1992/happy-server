@@ -1,7 +1,7 @@
 # Stage 1: Building the application
-FROM node:20 AS builder
+FROM oven/bun:1 AS builder
 
-# Install dependencies
+# Install dependencies (bun image is debian-based)
 RUN apt-get update && apt-get install -y python3 ffmpeg make g++ build-essential && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -10,8 +10,8 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY ./prisma ./prisma
 
-# Install bun and dependencies
-RUN npm install -g bun && bun install --frozen-lockfile
+# Install dependencies
+RUN bun install --frozen-lockfile
 
 # Copy the rest of the application code
 COPY ./tsconfig.json ./tsconfig.json
@@ -22,11 +22,11 @@ COPY ./sources ./sources
 RUN bun run build
 
 # Stage 2: Runtime
-FROM node:20 AS runner
+FROM oven/bun:1 AS runner
 
 WORKDIR /app
 
-# Install dependencies
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y python3 ffmpeg && rm -rf /var/lib/apt/lists/*
 
 # Set environment to production
