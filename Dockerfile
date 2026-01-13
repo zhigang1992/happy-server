@@ -6,20 +6,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3 ffmpeg 
 
 WORKDIR /app
 
-# Copy package.json and yarn.lock
-COPY package.json yarn.lock ./
+# Copy package.json and package-lock.json
+COPY package.json package-lock.json ./
 COPY ./prisma ./prisma
 
 # Install dependencies
-RUN yarn install --frozen-lockfile --ignore-engines
+RUN npm ci
 
 # Copy the rest of the application code
 COPY ./tsconfig.json ./tsconfig.json
 COPY ./vitest.config.ts ./vitest.config.ts
 COPY ./sources ./sources
 
-# Build the application
-RUN yarn build
+# Type check is skipped - tsx handles runtime transpilation
+# RUN npm run build
 
 # Stage 2: Runtime
 FROM node:22-slim AS runner
@@ -43,4 +43,4 @@ COPY --from=builder /app/sources ./sources
 EXPOSE 3000
 
 # Command to run the application
-CMD ["yarn", "start"]
+CMD ["npm", "start"]

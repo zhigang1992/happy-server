@@ -22,17 +22,17 @@ This document contains the development guidelines and instructions for the Happy
 - **Real-time**: Socket.io
 - **Cache/Pub-Sub**: Redis (via ioredis)
 - **Testing**: Vitest
-- **Package Manager**: Yarn (not npm)
+- **Package Manager**: npm
 
 ## Development Environment
 
 ### Commands
-- `yarn build` - TypeScript type checking
-- `yarn start` - Start the server
-- `yarn test` - Run tests
-- `yarn migrate` - Run Prisma migrations
-- `yarn generate` - Generate Prisma client
-- `yarn db` - Start local PostgreSQL in Docker
+- `npm run build` - TypeScript type checking
+- `npm start` - Start the server
+- `npm test` - Run tests
+- `npm run migrate` - Run Prisma migrations
+- `npm run generate` - Generate Prisma client
+- `npm run db` - Start local PostgreSQL in Docker
 
 ### Environment Requirements
 - FFmpeg installed (for media processing)
@@ -135,7 +135,7 @@ This document contains the development guidelines and instructions for the Happy
 - Use "inTx" to wrap database operations in transactions
 - Do not update schema without absolute necessity
 - For complex fields, use "Json" type
-- NEVER DO MIGRATION YOURSELF. Only run yarn generate when new types needed
+- NEVER DO MIGRATION YOURSELF. Only run npm run generate when new types needed
 
 ### Current Schema Status
 The project has pending Prisma migrations that need to be applied:
@@ -177,7 +177,7 @@ The project includes a multi-stage Dockerfile:
 3. ALWAYS prefer editing an existing file to creating a new one
 4. NEVER proactively create documentation files (*.md) or README files unless explicitly requested
 5. Use 4 spaces for tabs (not 2 spaces)
-6. Use yarn instead of npm for all package management
+6. Use npm for all package management
 
 ## Debugging Notes
 
@@ -206,8 +206,8 @@ The project includes a multi-stage Dockerfile:
 - **Tell**: "pathname /" in mobile logs = app stuck at root screen
 
 #### Environment Variables
-- CLI: Use `yarn dev:local-server` (NOT `yarn dev`) to load `.env.dev-local-server`
-- Server: Use `yarn dev` to start with proper env files
+- CLI: Use `npm run dev:local-server` (NOT `npm run dev`) to load `.env.dev-local-server`
+- Server: Use `npm run dev` to start with proper env files
 - **Tell**: Wrong server URL = check `HAPPY_SERVER_URL` env var
 - **Tell**: Wrong home dir = check `HAPPY_HOME_DIR` (should be `~/.happy-dev` for local)
 
