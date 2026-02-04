@@ -322,10 +322,11 @@ export function sessionRoutes(app: Fastify) {
             return reply.code(404).send({ error: 'Session not found' });
         }
 
+        // Fetch 151 to determine if more exist
         const messages = await db.sessionMessage.findMany({
             where: { sessionId },
             orderBy: { createdAt: 'desc' },
-            take: 150,
+            take: 151,
             select: {
                 id: true,
                 seq: true,
@@ -336,16 +337,17 @@ export function sessionRoutes(app: Fastify) {
             }
         });
 
-        // Get total count for pagination metadata
+        const hasMore = messages.length > 150;
+        const returnMessages = hasMore ? messages.slice(0, 150) : messages;
+        const nextCursor = hasMore && returnMessages.length > 0 ? returnMessages[returnMessages.length - 1].id : null;
+
+        // Get total count for UI display
         const totalCount = await db.sessionMessage.count({
             where: { sessionId }
         });
 
-        const hasMore = totalCount > 150;
-        const nextCursor = messages.length === 150 ? messages[messages.length - 1].id : null;
-
         return reply.send({
-            messages: messages.map((v) => ({
+            messages: returnMessages.map((v) => ({
                 id: v.id,
                 seq: v.seq,
                 content: v.content,
