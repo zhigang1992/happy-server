@@ -7,6 +7,7 @@ import { log } from "@/utils/log";
 import { randomKeyNaked } from "@/utils/randomKeyNaked";
 import { allocateUserSeq } from "@/storage/seq";
 import { sessionDelete } from "@/app/session/sessionDelete";
+import { MessageHistoryQuerySchema, PaginationMetadata } from './types/paginationTypes';
 
 export function sessionRoutes(app: Fastify) {
 
@@ -321,10 +322,11 @@ export function sessionRoutes(app: Fastify) {
             return reply.code(404).send({ error: 'Session not found' });
         }
 
+        // Fetch 151 to determine if more exist
         const messages = await db.sessionMessage.findMany({
             where: { sessionId },
             orderBy: { createdAt: 'desc' },
-            take: 150,
+            take: 151,
             select: {
                 id: true,
                 seq: true,
@@ -335,15 +337,120 @@ export function sessionRoutes(app: Fastify) {
             }
         });
 
+        const hasMore = messages.length > 150;
+        const returnMessages = hasMore ? messages.slice(0, 150) : messages;
+        const nextCursor = hasMore && returnMessages.length > 0 ? returnMessages[returnMessages.length - 1].id : null;
+
+        // Get total count for UI display
+        const totalCount = await db.sessionMessage.count({
+            where: { sessionId }
+        });
+
         return reply.send({
-            messages: messages.map((v) => ({
+            messages: returnMessages.map((v) => ({
                 id: v.id,
                 seq: v.seq,
                 content: v.content,
                 localId: v.localId,
                 createdAt: v.createdAt.getTime(),
                 updatedAt: v.updatedAt.getTime()
-            }))
+            })),
+            pagination: {
+                hasMore,
+                nextCursor,
+                totalCount
+            }
+        });
+    });
+
+    // Get session message history with pagination
+    app.get('/v1/sessions/:sessionId/messages/history', {
+        schema: {
+            params: z.object({
+                sessionId: z.string()
+            }),
+            querystring: MessageHistoryQuerySchema
+        },
+        preHandler: app.authenticate
+    }, async (request, reply) => {
+        const userId = request.userId;
+        const { sessionId } = request.params;
+        const { cursor, limit = 150 } = request.query as { cursor?: string; limit?: number };
+
+        // Verify session belongs to user
+        const session = await db.session.findFirst({
+            where: {
+                id: sessionId,
+                accountId: userId
+            }
+        });
+
+        if (!session) {
+            return reply.code(404).send({ error: 'Session not found' });
+        }
+
+        // Find cursor message to get timestamp if cursor provided
+        let cursorTimestamp: Date | undefined;
+        if (cursor) {
+            const cursorMessage = await db.sessionMessage.findUnique({
+                where: { id: cursor },
+                select: { createdAt: true }
+            });
+
+            if (!cursorMessage) {
+                return reply.code(400).send({ error: 'Invalid cursor' });
+            }
+
+            cursorTimestamp = cursorMessage.createdAt;
+        }
+
+        // Query messages older than cursor (or all if no cursor)
+        // Fetch limit + 1 to determine if more pages exist
+        const messages = await db.sessionMessage.findMany({
+            where: {
+                sessionId,
+                ...(cursorTimestamp ? { createdAt: { lt: cursorTimestamp } } : {})
+            },
+            orderBy: { createdAt: 'desc' },
+            take: limit + 1,
+            select: {
+                id: true,
+                seq: true,
+                localId: true,
+                content: true,
+                createdAt: true,
+                updatedAt: true
+            }
+        });
+
+        // Calculate pagination metadata
+        const hasMore = messages.length > limit;
+        const returnMessages = hasMore ? messages.slice(0, limit) : messages;
+        const nextCursor = hasMore && returnMessages.length > 0
+            ? returnMessages[returnMessages.length - 1].id
+            : null;
+
+        // Get total count for this session
+        const totalCount = await db.sessionMessage.count({
+            where: { sessionId }
+        });
+
+        const pagination: PaginationMetadata = {
+            hasMore,
+            nextCursor,
+            totalCount
+        };
+
+        return reply.send({
+            messages: returnMessages.map((v) => ({
+                id: v.id,
+                seq: v.seq,
+                content: v.content,
+                localId: v.localId,
+                createdAt: v.createdAt.getTime(),
+                updatedAt: v.updatedAt.getTime()
+            })),
+            pagination
         });
     });
 
