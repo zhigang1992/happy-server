@@ -336,6 +336,14 @@ export function sessionRoutes(app: Fastify) {
             }
         });
 
+        // Get total count for pagination metadata
+        const totalCount = await db.sessionMessage.count({
+            where: { sessionId }
+        });
+
+        const hasMore = totalCount > 150;
+        const nextCursor = messages.length === 150 ? messages[messages.length - 1].id : null;
+
         return reply.send({
             messages: messages.map((v) => ({
                 id: v.id,
@@ -344,7 +352,12 @@ export function sessionRoutes(app: Fastify) {
                 localId: v.localId,
                 createdAt: v.createdAt.getTime(),
                 updatedAt: v.updatedAt.getTime()
-            }))
+            })),
+            pagination: {
+                hasMore,
+                nextCursor,
+                totalCount
+            }
         });
     });
 
